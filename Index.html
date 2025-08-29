@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR-JMT Audio Player</title>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        body { 
+            font-family: 'Sarabun', sans-serif; 
+            background-image: url('https://img2.pic.in.th/pic/Cover808900978ea91797.jpg'); 
+            background-size: cover; 
+            background-position: center; 
+            background-repeat: no-repeat; 
+            background-attachment: fixed; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            padding: 1rem;
+            background-color: #f0f2f5;
+        }
+        .login-card, .player-card { 
+            background-color: rgba(255, 255, 255, 0.98); 
+            border-radius: 20px; 
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15); 
+            max-width: 800px;
+            width: 100%; 
+            padding: 2.5rem;
+        }
+        .login-card {
+            max-width: 500px; /* การ์ดล็อกอินเล็กกว่า */
+        }
+        .card-title { 
+            font-weight: 700; 
+            color: #333; 
+            margin-bottom: 0.5rem; 
+            font-size: 2rem;
+        }
+        .card-subtitle { 
+            color: #6c757d; 
+            margin-bottom: 2rem;
+        }
+        #employeeIdInput {
+            font-size: 1.1rem;
+            padding: 12px 20px;
+            height: auto;
+        }
+        #loginButton {
+            font-size: 1.1rem;
+            font-weight: 500;
+            padding: 12px;
+            background-color: #D32F2F;
+            border-color: #D32F2F;
+        }
+        #loginButton:hover {
+            background-color: #B71C1C;
+            border-color: #B71C1C;
+        }
+        .header-image {
+            max-width: 150px; /* สามารถปรับขนาดได้ตามต้องการ */
+            margin-bottom: 1rem;
+        }
+        .search-container { margin-bottom: 1.5rem; position: relative; }
+        #searchInput { width: 100%; padding: 10px 40px 10px 20px; border-radius: 50px; border: 1px solid #ddd; font-size: 1rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+        .search-container .fa-search { position: absolute; top: 50%; right: 20px; transform: translateY(-50%); color: #aaa; }
+        #audioPlayer { width: 100%; margin-bottom: 1.5rem; border-radius: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        #playlist { list-style: none; padding: 0; max-height: 45vh; overflow-y: auto; }
+        #playlist li { padding: 15px 20px; border-bottom: 1px solid #eee; cursor: pointer; transition: background-color 0.2s ease; display: flex; align-items: center; justify-content: space-between; font-size: 1.05rem; }
+        #playlist li:hover { background-color: #f8f9fa; }
+        #playlist li.active { background-color: #D32F2F; color: white; font-weight: 500; border-radius: 10px; }
+        #playlist li .track-name { display: flex; align-items: center; }
+        #playlist li i { margin-right: 15px; color: #6c757d; }
+        #playlist li.active i { color: white; }
+        #loading-message, #no-results-message { text-align: center; padding: 2rem; font-size: 1.1rem; color: #6c757d; }
+    </style>
+</head>
+<body>
+
+<div id="login-container">
+    <div class="login-card">
+        <div class="text-center">
+            <h3 class="card-title">ตรวจสอบสิทธิ์การเข้าใช้งาน</h3>
+            <p class="card-subtitle">กรุณากรอกรหัสพนักงานของคุณ</p>
+        </div>
+        <div class="form-group">
+            <input type="text" class="form-control" id="employeeIdInput" placeholder="รหัสพนักงาน">
+        </div>
+        <button id="loginButton" class="btn btn-danger btn-block">ตรวจสอบสิทธิ์</button>
+    </div>
+</div>
+
+<div class="player-card" id="player-container" style="display: none;">
+    <div class="text-center">
+        <img src="https://img5.pic.in.th/file/secure-sv1/-1920-x-300-px.png" alt="Company Logo" class="header-image" style="max-width: 350px; margin-bottom: 1.5rem;">
+        
+        <h3 class="card-title">รายการไฟล์เสียง</h3>
+        <p class="card-subtitle">ค้นหาและเลือกไฟล์เสียงที่ต้องการฟัง</p>
+    </div>
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="ค้นหาชื่อไฟล์เสียง...">
+        <i class="fas fa-search"></i>
+    </div>
+    <audio id="audioPlayer" controls controlslist="nodownload"></audio>
+    <ul id="playlist">
+        <div id="loading-message">
+            <i class="fas fa-spinner fa-spin"></i> กำลังโหลดรายการ...
+        </div>
+    </ul>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // URL ของ Web App จะถูกดึงมาอัตโนมัติ ไม่ต้องแก้ไขส่วนนี้
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbym4onEVBHOvDMPy3Ij3aEXfvCUEPiZZrnNhHVpG5FBZ_0to_IHVHzIYo2ztSkp2JUv/exec';
+    
+    // UI Elements
+    const loginContainer = document.getElementById('login-container');
+    const playerContainer = document.getElementById('player-container');
+    const employeeIdInput = document.getElementById('employeeIdInput');
+    const loginButton = document.getElementById('loginButton');
+    
+    const playlistElement = document.getElementById('playlist');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const loadingMessage = document.getElementById('loading-message');
+    const searchInput = document.getElementById('searchInput');
+
+    // State
+    let currentPlaylistItem = null;
+    let audioFiles = [];
+
+    // --- Login Logic ---
+    function handleLogin() {
+        const employeeId = employeeIdInput.value.trim();
+        if (!employeeId) {
+            Swal.fire('ข้อมูลไม่ครบถ้วน', 'กรุณากรอกรหัสพนักงาน', 'warning');
+            return;
+        }
+
+        Swal.fire({
+            title: 'กำลังตรวจสอบข้อมูล',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            willOpen: () => { Swal.showLoading(); }
+        });
+        
+        const formData = new FormData();
+        formData.append('action', 'checkEmployeeId');
+        formData.append('employeeId', employeeId);
+
+        fetch(scriptURL, { method: 'POST', body: formData })
+            .then(response => response.json())
+            .then(data => {
+                if (data.result === 'success') {
+                    Swal.close();
+                    loginContainer.style.display = 'none';
+                    playerContainer.style.display = 'block';
+                    loadPlaylist(); // <-- โหลด Playlist หลังตรวจสอบสิทธิ์ผ่าน
+                } else {
+                    throw new Error(data.error || 'รหัสพนักงานไม่ถูกต้อง');
+                }
+            })
+            .catch(error => {
+                Swal.fire('ตรวจสอบสิทธิ์ไม่สำเร็จ', error.message, 'error');
+            });
+    }
+
+    loginButton.addEventListener('click', handleLogin);
+    employeeIdInput.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            handleLogin();
+        }
+    });
+
+
+    // --- Player Logic ---
+    function loadPlaylist() {
+        loadingMessage.style.display = 'block';
+        const formData = new FormData();
+        formData.append('action', 'getAudioFileList');
+
+        fetch(scriptURL, { method: 'POST', body: formData })
+            .then(response => response.json())
+            .then(data => {
+                loadingMessage.style.display = 'none';
+                if (data.result === 'success' && data.files && data.files.length > 0) {
+                    audioFiles = data.files;
+                    renderPlaylist(audioFiles);
+                } else {
+                    playlistElement.innerHTML = '<li class="text-center text-muted p-3">ไม่พบไฟล์เสียงในโฟลเดอร์ที่กำหนด</li>';
+                }
+            })
+            .catch(error => {
+                loadingMessage.style.display = 'none';
+                Swal.fire('เกิดข้อผิดพลาด!', 'ไม่สามารถโหลดรายการไฟล์เสียงได้: ' + error.message, 'error');
+            });
+    }
+
+    function renderPlaylist(files) {
+        playlistElement.innerHTML = '';
+        if (files.length === 0) {
+            playlistElement.innerHTML = '<div id="no-results-message">ไม่พบไฟล์ที่ตรงกับคำค้นหา</div>';
+            return;
+        }
+        files.forEach((file) => {
+            const originalIndex = audioFiles.findIndex(originalFile => originalFile.id === file.id);
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `<div class="track-name"><i class="fas fa-music"></i><span>${file.name.replace(/\.[^/.]+$/, "")}</span></div>`;
+            listItem.dataset.id = file.id;
+            listItem.dataset.index = originalIndex;
+            listItem.addEventListener('click', () => playTrack(listItem));
+            playlistElement.appendChild(listItem);
+        });
+    }
+
+    function playTrack(listItem) {
+        if (!listItem || listItem.classList.contains('loading')) return;
+        listItem.classList.add('loading');
+        
+        Swal.fire({
+            title: 'กำลังโหลดไฟล์เสียง',
+            text: 'กรุณารอสักครู่...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            willOpen: () => { Swal.showLoading(); }
+        });
+
+        const formData = new FormData();
+        formData.append('action', 'getAudioFileData');
+        formData.append('id', listItem.dataset.id);
+
+        fetch(scriptURL, { method: 'POST', body: formData })
+            .then(response => response.json())
+            .then(data => {
+                Swal.close();
+                if (data.result === 'success') {
+                    audioPlayer.src = data.url;
+                    audioPlayer.play();
+                    if (currentPlaylistItem) currentPlaylistItem.classList.remove('active');
+                    listItem.classList.add('active');
+                    currentPlaylistItem = listItem;
+                } else {
+                    throw new Error(data.error || 'ไม่สามารถโหลดข้อมูลเสียงได้');
+                }
+            })
+            .catch(error => {
+                Swal.fire('เกิดข้อผิดพลาด!', 'ไม่สามารถเล่นไฟล์เสียงได้: ' + error.message, 'error');
+            })
+            .finally(() => {
+                listItem.classList.remove('loading');
+            });
+    }
+
+    searchInput.addEventListener('input', () => {
+        const searchTerm = searchInput.value.toLowerCase();
+        const filteredFiles = audioFiles.filter(file => file.name.toLowerCase().includes(searchTerm));
+        renderPlaylist(filteredFiles);
+    });
+
+    audioPlayer.addEventListener('ended', () => {
+        if (currentPlaylistItem) {
+            const nextIndex = parseInt(currentPlaylistItem.dataset.index, 10) + 1;
+            if (nextIndex < audioFiles.length) {
+                const nextFileId = audioFiles[nextIndex].id;
+                const nextListItem = playlistElement.querySelector(`li[data-id='${nextFileId}']`);
+                if (nextListItem) playTrack(nextListItem);
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
